@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:jms="http://www.springframework.org/schema/jms"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+ http://www.springframework.org/schema/beans/spring-beans-2.0.xsd 
+ http://www.springframework.org/schema/tx 
+ http://www.springframework.org/schema/tx/spring-tx-2.0.xsd 
+ http://www.springframework.org/schema/aop 
+ http://www.springframework.org/schema/aop/spring-aop-2.0.xsd 
+ http://www.springframework.org/schema/jms 
+ http://www.springframework.org/schema/jms/spring-jms-2.5.xsd
+ http://www.springframework.org/schema/context 
+ http://www.springframework.org/schema/context/spring-context-2.5.xsd">
+
+	<bean id="helloBean" class="com.winit.bean.HelloBean">
+		<property name="helloWorld">
+			<value>Hello Spring</value>
+		</property>
+	</bean>
+
+	<import resource="rest-context.xml" />
+	<import resource="rest-servlet.xml" />
+	<import resource="redis.xml" />
+
+	<!-- <context:property-placeholder location="classpath:jdbc.properties" 
+		/> -->
+	<bean id="propertyConfigurer"
+		class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				<value>classpath:jdbc.properties</value>
+				<value>classpath:redis.properties</value>
+			</list>
+		</property>
+	</bean>
+
+	<bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource"
+		destroy-method="close">
+		<property name="driverClass" value="${c3p0.driverClass}"></property>
+		<property name="jdbcUrl" value="${c3p0.url}"></property>
+		<property name="user" value="${c3p0.user}"></property>
+		<property name="password" value="${c3p0.password}"></property>
+		<property name="acquireIncrement" value="${c3p0.acquireIncrement}"></property>
+		<property name="initialPoolSize" value="${c3p0.initialPoolSize}"></property>
+		<property name="maxIdleTime" value="${c3p0.maxIdleTime}"></property>
+		<property name="maxPoolSize" value="${c3p0.maxPoolSize}"></property>
+		<property name="minPoolSize" value="${c3p0.minPoolSize}"></property>
+
+		<property name="acquireRetryDelay" value="1000"></property>
+		<property name="acquireRetryAttempts" value="60"></property>
+		<property name="breakAfterAcquireFailure" value="false"></property>
+	</bean>
+
+	<!-- 创建SqlSessionFactory，同时指定数据源 -->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<!-- 指定sqlMapConfig总配置文件，订制的environment在spring容器中不在生效 -->
+		<property name="configLocation" value="classpath:sqlMapConfig.xml" />
+		<!--指定实体类映射文件，可以指定同时指定某一包以及子包下面的所有配置文件，mapperLocations和configLocation有一个即可，当需要为实体类指定别名时，可指定configLocation属性，再在mybatis总配置文件中采用mapper引入实体类映射文件 -->
+		<!-- -->
+		<property name="mapperLocations" value="classpath*:mybatis/**/*.xml" />
+	</bean>
+
+	<bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+		<constructor-arg index="0" ref="sqlSessionFactory" />
+	</bean>
+
+	<bean id="UserDaoImpl" class="com.winit.dao.impl.UserDaoImpl"></bean>
+
+	<bean id="logMethodInteceptor" class="com.winit.inteceptor.LogMethodInteceptor" />
+
+	<!-- 创建代理 -->
+	<bean id="ProxyUserDaoImpl" class="org.springframework.aop.framework.ProxyFactoryBean">
+		<property name="proxyInterfaces">
+			<value>com.winit.dao.UserDao</value>
+		</property>
+
+		<property name="interceptorNames">
+			<list>
+				<value>logMethodInteceptor</value>
+				<value>UserDaoImpl</value>
+			</list>
+		</property>
+	</bean>
+
+	<bean id="connectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory"
+		p:brokerURL="tcp://120.24.227.211:61616" />
+
+	<bean id="jmsTemplate" class="org.springframework.jms.core.JmsTemplate">
+		<constructor-arg ref="connectionFactory" />
+		<property name="defaultDestinationName" value="TestQueue" />
+	</bean>
+
+	<jms:listener-container container-type="default"
+		connection-factory="connectionFactory" acknowledge="auto">
+		<jms:listener destination="TestQueue" ref="messageListener"
+			method="onMessage" />
+	</jms:listener-container>
+
+	<bean id="messageListener" class="com.winit.mq.receiver.SimpleMessageListener" />
+	
+	<bean id="messageSender" class="com.winit.mq.sender.SimpleMessageSender"/>
+
+	<!-- <bean id="jmsTemplate" class="org.springframework.jms.core.JmsTemplate">
+		<constructor-arg name="connectionFactory" ref="connectionFactory" />
+		<property name="defaultDestinationName" value="TestTopic" />
+		<property name="pubSubDomain" value="true" />
+	</bean>
+
+	<jms:listener-container container-type="default"
+		destination-type="topic" connection-factory="connectionFactory"
+		acknowledge="auto">
+		<jms:listener destination="TestTopic" ref="subscriber1"
+			method="onMessage" />
+	</jms:listener-container> -->
+
+</beans>

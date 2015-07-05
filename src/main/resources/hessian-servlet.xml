@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="
+		http://www.springframework.org/schema/mvc 
+		http://www.springframework.org/schema/mvc/spring-mvc-3.0.xsd
+		http://www.springframework.org/schema/beans
+		http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+		http://www.springframework.org/schema/context 
+		http://www.springframework.org/schema/context/spring-context-3.0.xsd">
+
+	<bean id="sayHelloService" class="com.winit.hessian.DefaultSayHelloServiceImpl" />
+
+	<bean id="sayHelloService_hessianRPC"
+		class="org.springframework.remoting.caucho.HessianServiceExporter">
+		<property name="service" ref="sayHelloService" />
+		<!-- 服务接口 -->
+		<property name="serviceInterface" value="com.winit.hessian.ISayHelloService" />
+	</bean>
+	
+	<bean id="simpleUrlHandlerMapping" class="org.springframework.web.servlet.handler.SimpleUrlHandlerMapping">  
+        <property name="urlMap">  
+            <map>  
+                <entry key="/sayHelloService.hessian"    value-ref="sayHelloService_hessianRPC" />  
+            </map>  
+        </property>  
+    </bean>   
+    
+    <!-- client -->
+    <bean id="sayHelloServiceClient"  class="org.springframework.remoting.caucho.HessianProxyFactoryBean">  
+        <!-- 重载方法支持 不然会抛出异常  :Caused by: com.caucho.hessian.io.HessianProtocolException:  is an unknown code -->  
+        <property name="overloadEnabled" value="true" />  
+        <property name="serviceUrl"      value="http://localhost:8080/ssi/sayHelloService.hessian" />  
+        <!-- 服务接口 -->  
+        <property name="serviceInterface"    value="com.winit.hessian.ISayHelloService"/>  
+    </bean>  
+</beans>
